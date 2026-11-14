@@ -3071,6 +3071,10 @@ export default function ChatView(props: ChatViewProps) {
       .some((id) => id !== "" && !previousIds.has(id));
     if (hasNewMessage && timelineLiveFollowEnabled) scrollToEnd(true);
   }, [routeThreadKey, pendingGuestMessageKey, timelineLiveFollowEnabled, scrollToEnd]);
+  const onExpandTimelineImage = (preview: ExpandedImagePreview) => {
+    openExpandedImagePreview(routeThreadKey, preview);
+  };
+  const onExpandTimelineImageStable = useStableCallback(onExpandTimelineImage);
   const queuedRunsControl =
     isServerThread && activeThread ? (
       <>
@@ -3093,6 +3097,7 @@ export default function ChatView(props: ChatViewProps) {
           onCancelEdit={queuedRunEdit.cancelEdit}
           timestampFormat={timestampFormat}
           onOpenThread={onOpenRelatedThreadStable}
+          onImageExpand={onExpandTimelineImageStable}
         />
       </>
     ) : null;
@@ -3138,10 +3143,6 @@ export default function ChatView(props: ChatViewProps) {
     workLocallyResendReady,
   ]);
 
-  const onExpandTimelineImage = (preview: ExpandedImagePreview) => {
-    openExpandedImagePreview(routeThreadKey, preview);
-  };
-  const onExpandTimelineImageStable = useStableCallback(onExpandTimelineImage);
   const shownThreadSyncPhase = activeEnvironmentUnavailable ? null : delayedThreadSyncPhase;
   const hasThreadNow =
     attentionNow !== null || workNow !== null || goalNow !== null || shownThreadSyncPhase !== null;
