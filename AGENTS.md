@@ -1,8 +1,14 @@
 # T3 Code
 
-T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity, Kiro, Pi, Muse Code, fx) and serves web, desktop, and mobile clients.
+This branch is a fork of T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity, Kiro, Pi, Muse Code, fx) and serves web, desktop, and mobile clients.
 
 You can think of T3 Code as an open source "bring-your-own-subscription" alternative to apps like Claude Desktop, Codex App, Cursor Glass and Conductor.
+
+## Extended features
+
+Whenever this branch is merged with main look at `docs/extended-features.md`. main branch will be synced with the forked repo, but this branch must keep the extended features implemented, so use that documentation file to merge changes without breaking the intended extended features.
+
+After any extended feature is implemented, add a note to the `docs/extended-features.md` file to remind yourself and others to keep the feature updated when the main branch is synced.
 
 ## What makes T3 Code special?
 

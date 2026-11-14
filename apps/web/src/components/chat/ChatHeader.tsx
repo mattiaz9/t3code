@@ -58,6 +58,7 @@ interface ChatHeaderProps {
   onNewThreadInProject: () => void;
   onOpenProjectSettings?: (() => void) | undefined;
   onFindInThread?: ((threadRef: ScopedThreadRef) => void) | undefined;
+  className?: string | undefined;
 }
 
 function resolveRenameCommit(input: {
@@ -83,6 +84,7 @@ export const ChatHeader = memo(function ChatHeader({
   onNewThreadInProject,
   onOpenProjectSettings,
   onFindInThread,
+  className,
 }: ChatHeaderProps) {
   const gt = useGT();
   const activeProjectName = activeProject?.isScratch ? gt("No project") : activeProject?.title;
@@ -254,6 +256,7 @@ export const ChatHeader = memo(function ChatHeader({
       className={cn(
         "flex min-w-0 flex-1 items-center gap-2 sm:gap-3",
         rightPanelOpen ? "pr-10" : "pr-24",
+        className,
       )}
       onContextMenu={handleHeaderContextMenu}
     >
