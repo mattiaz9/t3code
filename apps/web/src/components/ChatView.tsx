@@ -178,6 +178,12 @@ import {
   selectThreadRightPanelState,
   useRightPanelStore,
 } from "../rightPanelStore";
+import {
+  selectWorkspaceView,
+  useWorkspaceViewStore,
+  type WorkspaceView,
+} from "../workspaceViewStore";
+import { WorkspaceViewContent, WorkspaceViewTabs } from "./chat/WorkspaceView";
 import { isPreviewSupportedInRuntime, useThreadPreviewState } from "../previewStateStore";
 import { previewRuntimeTabId } from "../browser/previewRuntimeTabId";
 import {
@@ -1089,8 +1095,18 @@ export default function ChatView(props: ChatViewProps) {
     ),
   );
   const canReuseTerminal = activeThreadKnownSessionsRaw !== null;
+  const storedWorkspaceView = useWorkspaceViewStore((state) =>
+    selectWorkspaceView(state.viewByThreadKey, activeThreadKey),
+  );
+  const workspaceView = embedded ? "chat" : storedWorkspaceView;
+  const setWorkspaceViewStable = useStableCallback((view: WorkspaceView) => {
+    if (activeThreadKey !== null) useWorkspaceViewStore.getState().setView(activeThreadKey, view);
+  });
+  // The browser and code views fill the chat body, so the right panel, terminal drawer and
+  // thread details stay hidden (and their toggles and shortcuts off) until chat is back.
+  const chatViewActive = workspaceView === "chat";
   const previewPanelOpen = activeRightPanelKind === "preview" && browserAvailable;
-  const rightPanelOpen = rightPanelState.isOpen;
+  const rightPanelOpen = rightPanelState.isOpen && chatViewActive;
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings();
   const rightPanelPresenceValue = {
@@ -2415,7 +2431,8 @@ export default function ChatView(props: ChatViewProps) {
     pullRequestPanelTarget,
     threadPanelPresentation,
     isServerThread,
-    embedded,
+    // Off outside the chat view too, so `preview.toggle` cannot open the hidden right panel.
+    embedded: embedded || !chatViewActive,
     isGitRepo,
     browserAvailable,
     canOperatePreview,
@@ -2715,9 +2732,9 @@ export default function ChatView(props: ChatViewProps) {
 
   const getShortcutContext = (eventTarget: EventTarget | null = document.activeElement) => ({
     terminalFocus: getTerminalFocusOwner() !== null,
-    terminalOpen: Boolean(terminalUiState.terminalOpen),
+    terminalOpen: chatViewActive && Boolean(terminalUiState.terminalOpen),
     previewFocus: isPreviewFocused(),
-    previewOpen: previewPanelOpen,
+    previewOpen: chatViewActive ? previewPanelOpen : workspaceView === "browser",
     editableFocus: isEditableFocused(eventTarget),
     modelPickerOpen: composerRef.current?.isModelPickerOpen() ?? false,
     composerFocus:
@@ -2750,20 +2767,25 @@ export default function ChatView(props: ChatViewProps) {
     getShortcutContext,
     threadFindActive: isThreadFindActive,
     composerRef,
+    composerVisible: chatViewActive,
     branchToolbarRef,
     closeThreadFind: () => {
       closeThreadFind();
       focusComposerStable();
     },
     commands: {
-      ...terminalShortcuts,
-      ...rightPanelShortcuts,
+      ...(chatViewActive ? { ...terminalShortcuts, ...rightPanelShortcuts } : {}),
       ...threadLifecycleShortcuts,
       "thread.copyReference": ({ event }) => {
         if (!event.repeat) copyActiveThreadReference();
       },
       "chat.find": () => {
-        if (!isServerThread || serverConfig?.threadFind !== true || activeThreadKey === null)
+        if (
+          !chatViewActive ||
+          !isServerThread ||
+          serverConfig?.threadFind !== true ||
+          activeThreadKey === null
+        )
           return false;
         openThreadFind(activeThreadKey);
       },
@@ -2790,7 +2812,7 @@ export default function ChatView(props: ChatViewProps) {
     },
     fallback: (command) => {
       const scriptId = projectScriptIdFromCommand(command);
-      if (!scriptId || !activeProject || !canOperateTerminal) return undefined;
+      if (!chatViewActive || !scriptId || !activeProject || !canOperateTerminal) return undefined;
       const script = activeProjectScripts.find((entry) => entry.id === scriptId);
       return script ? () => void runProjectScriptStable(script) : undefined;
     },
@@ -2799,14 +2821,14 @@ export default function ChatView(props: ChatViewProps) {
   // A focused desktop browser page forwards these chords as menu actions.
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to desktop bridge menu actions that toggle the right panel
   useEffect(() => {
-    if (embedded) return;
+    if (embedded || !chatViewActive) return;
     return window.desktopBridge?.onMenuAction((action) => {
       if (action === "rightPanel.toggle") toggleRightPanelStable();
       else if (action === "rightPanel.toggleMaximized") toggleRightPanelMaximizedStable();
     });
-  }, [embedded, toggleRightPanelStable, toggleRightPanelMaximizedStable]);
+  }, [chatViewActive, embedded, toggleRightPanelStable, toggleRightPanelMaximizedStable]);
 
-  usePasteToFocusComposer(embedded ? null : activeThreadId, composerRef);
+  usePasteToFocusComposer(embedded || !chatViewActive ? null : activeThreadId, composerRef);
   // A delegated task is a remote thread's subagent.
   const isSubagentThread =
     activeThread?.lineage.relationshipToParent === "subagent" || delegatedFrom !== null;
@@ -3313,6 +3335,7 @@ export default function ChatView(props: ChatViewProps) {
       {panelToggleControls}
     </WorkspaceTitlebarControls>
   );
+  const workspaceViewTabsShown = !embedded && activeThreadKey !== null;
   const workspaceFileDropHandlers = makeWorkspaceFileDropHandlers({
     setDragActive: setIsWorkspaceFileDragActive,
     addFiles: addDroppedFilesToComposer,
@@ -3331,10 +3354,10 @@ export default function ChatView(props: ChatViewProps) {
           state={deviceState}
         />
       )}
-      {rightPanelControlsAtRoot && !embedded ? panelLayoutControls : null}
+      {rightPanelControlsAtRoot && !embedded && chatViewActive ? panelLayoutControls : null}
       <div
         className={cn(
-          "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
+          "relative flex min-h-0 min-w-0 flex-col overflow-x-hidden",
           rightPanelMaximized ? "w-0 flex-none" : "flex-1",
         )}
         data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}
@@ -3347,7 +3370,7 @@ export default function ChatView(props: ChatViewProps) {
             ref={threadPanelPopoverAnchorRef}
             data-chat-header
             className={cn(
-              "relative bg-background [[data-panel-animations=true]_&]:motion-safe:transition-[padding-left] [[data-panel-animations=true]_&]:motion-safe:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:motion-safe:ease-out",
+              "@container/chat-header relative bg-background [[data-panel-animations=true]_&]:motion-safe:transition-[padding-left] [[data-panel-animations=true]_&]:motion-safe:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:motion-safe:ease-out",
               isElectron
                 ? cn(
                     "drag-region flex h-[var(--workspace-topbar-height)] min-h-[var(--workspace-topbar-height)] shrink-0 items-center px-3 sm:px-5",
@@ -3365,9 +3388,28 @@ export default function ChatView(props: ChatViewProps) {
                 className="pointer-events-none fixed top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] h-[var(--workspace-topbar-height)] w-28 [-webkit-app-region:no-drag]"
               />
             ) : null}
-            {!rightPanelControlsAtRoot && !rightPanelControlsInPanel ? panelLayoutControls : null}
+            {!rightPanelControlsAtRoot && !rightPanelControlsInPanel && chatViewActive
+              ? panelLayoutControls
+              : null}
             {inlineRightPanelOwnsTitleBar ? threadPanelHeaderControl : null}
+            {workspaceViewTabsShown ? (
+              <div className="pointer-events-none absolute inset-y-0 left-1/2 z-10 flex -translate-x-1/2 items-center">
+                <div className="pointer-events-auto [-webkit-app-region:no-drag]">
+                  <WorkspaceViewTabs
+                    view={workspaceView}
+                    codeAvailable={activeWorkspaceRoot !== undefined}
+                    onViewChange={setWorkspaceViewStable}
+                  />
+                </div>
+              </div>
+            ) : null}
             <ChatHeader
+              {...(workspaceViewTabsShown
+                ? {
+                    className:
+                      "max-w-[calc(50%-3.5rem)] pr-0 @min-[40rem]/chat-header:max-w-[calc(50%-8.5rem)]",
+                  }
+                : {})}
               activeThreadEnvironmentId={activeThread.environmentId}
               activeThreadId={activeThread.id}
               isServerThread={isServerThread}
@@ -3386,7 +3428,7 @@ export default function ChatView(props: ChatViewProps) {
           </header>
         )}
 
-        <div className="relative flex min-h-0 min-w-0 flex-1">
+        <div className="relative flex min-h-0 min-w-0 flex-1" inert={!chatViewActive}>
           <ThreadFindCanvas
             findOptions={{
               skills: timelineSkills,
@@ -3870,7 +3912,7 @@ export default function ChatView(props: ChatViewProps) {
             {canOperatePreview && activeThreadRef && activeEnvironmentServerBrowser && !embedded ? (
               <PreviewSessionSync threadRef={activeThreadRef} />
             ) : null}
-            {activeThreadRef && shownPreviewMiniPlayer && !embedded ? (
+            {activeThreadRef && shownPreviewMiniPlayer && !embedded && chatViewActive ? (
               <ThreadPreviewMiniPlayer
                 key={`${activeThreadKey}:${previewMiniPlayerSourceKey(shownPreviewMiniPlayer.source)}`}
                 threadRef={activeThreadRef}
@@ -3972,22 +4014,49 @@ export default function ChatView(props: ChatViewProps) {
         </div>
 
         {embedded ? null : (
-          <ChatTerminalDrawers
-            activeThreadKey={activeThreadKey}
-            activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
-            composerHeight={composerReservedHeight}
-            launchContext={activeTerminalLaunchContext ?? null}
-            splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
-            splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
-            newShortcutLabel={newTerminalShortcutLabel ?? undefined}
-            closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
-            keybindings={keybindings}
-            onAddTerminalContext={addTerminalContextToDraftStable}
-          />
+          <div className="contents" inert={!chatViewActive}>
+            <ChatTerminalDrawers
+              activeThreadKey={activeThreadKey}
+              activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
+              composerHeight={composerReservedHeight}
+              launchContext={activeTerminalLaunchContext ?? null}
+              splitShortcutLabel={splitTerminalShortcutLabel ?? undefined}
+              splitVerticalShortcutLabel={splitTerminalVerticalShortcutLabel ?? undefined}
+              newShortcutLabel={newTerminalShortcutLabel ?? undefined}
+              closeShortcutLabel={closeTerminalShortcutLabel ?? undefined}
+              keybindings={keybindings}
+              onAddTerminalContext={addTerminalContextToDraftStable}
+            />
+          </div>
         )}
+        {workspaceView !== "chat" && activeThreadRef && activeThreadKey ? (
+          // Covers the chat body instead of unmounting it, so the timeline, composer
+          // and terminals keep their state and sizes for the switch back to chat.
+          <div className="absolute inset-x-0 top-(--workspace-topbar-height) bottom-0 z-50 flex min-h-0 min-w-0 flex-col bg-background">
+            <WorkspaceViewContent
+              view={workspaceView}
+              threadRef={activeThreadRef}
+              threadKey={activeThreadKey}
+              environmentId={activeThread.environmentId}
+              composerDraftTarget={composerDraftTarget}
+              keybindings={keybindings}
+              configuredPreviewUrls={configuredPreviewUrls}
+              workspaceMutationId={workspaceMutationId}
+              onSendAnnotation={sendPreviewAnnotationStable}
+              files={{
+                projectId: activeProject?.id,
+                projectName: activeProject?.title ?? null,
+                workspaceRoot: activeWorkspaceRoot,
+                availableEditors,
+                pendingSurfaceIds: pendingFileSurfaceIds,
+                onPendingChange: handleFilePendingChangeStable,
+              }}
+            />
+          </div>
+        ) : null}
       </div>
 
-      {rightPanelPresent && activeThreadRef && !embedded ? (
+      {rightPanelPresent && activeThreadRef && !embedded && chatViewActive ? (
         <ChatRightPanel
           sheet={shouldUsePlanSidebarSheet}
           workspaceLayoutElement={workspaceLayoutElement}
