@@ -46,6 +46,8 @@ interface ChatShortcutsInput {
   readonly threadFindActive: boolean;
   /** Takes type-to-focus keys and the composer and branch toolbar chords. */
   readonly composerRef: ComposerHandleRef;
+  /** False while a browser or code view covers the composer, so neither reaches it. */
+  readonly composerVisible?: boolean;
   readonly branchToolbarRef: { readonly current: BranchToolbarHandle | null };
   readonly closeThreadFind: () => void;
   readonly commands: ChatShortcutCommands;
@@ -80,8 +82,10 @@ export function useChatShortcuts(input: ChatShortcutsInput) {
     const terminalFocusOwner = getTerminalFocusOwner();
     if (event.defaultPrevented && terminalFocusOwner === null) return;
     const shortcutContext = input.getShortcutContext(event.target);
+    const composerVisible = input.composerVisible !== false;
 
     if (
+      composerVisible &&
       !inSideChatPane &&
       !shortcutContext.terminalFocus &&
       !shortcutContext.modelPickerOpen &&
@@ -99,7 +103,9 @@ export function useChatShortcuts(input: ChatShortcutsInput) {
     if (!command || (inSideChatPane && !SIDE_CHAT_PANE_COMMANDS.has(command))) return;
     const run =
       input.commands[command] ??
-      composerShortcutCommands(input.composerRef, input.branchToolbarRef)[command] ??
+      (composerVisible
+        ? composerShortcutCommands(input.composerRef, input.branchToolbarRef)[command]
+        : undefined) ??
       input.fallback(command);
     if (!run) return;
     const handled = run({ event, terminalFocusOwner });

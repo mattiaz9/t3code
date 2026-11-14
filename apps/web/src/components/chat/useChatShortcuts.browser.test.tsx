@@ -60,8 +60,10 @@ function Chat(props: {
   finds?: string[];
   scriptKeybindings?: ResolvedKeybindingsConfig;
   scriptsRan?: string[];
+  composerVisible?: boolean;
 }) {
   useChatShortcuts({
+    ...(props.composerVisible === undefined ? {} : { composerVisible: props.composerVisible }),
     enabled: true,
     keybindings: [ctrl("f", "chat.find")],
     scriptKeybindings: props.scriptKeybindings ?? [],
@@ -110,6 +112,18 @@ it("still types other letters into the composer while the launcher is open", asy
 
   expect(composerKeys).toEqual(["a"]);
   expect(received).toEqual([]);
+});
+
+it("types nothing into a composer that a browser or code view covers", async () => {
+  const composerKeys: string[] = [];
+  await using _screen = await render(
+    <Chat composerKeys={composerKeys} composerVisible={false} />,
+    options,
+  );
+
+  await userEvent.keyboard("a");
+
+  expect(composerKeys).toEqual([]);
 });
 
 it("leaves a non-Latin launcher letter to the launcher by its physical key", async () => {
