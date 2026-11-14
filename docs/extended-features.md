@@ -65,3 +65,38 @@ returns to Chat. Embedded side-chat panes always render as Chat.
 
 - Mobile (`apps/mobile`) has its own navigation and does not have these views.
 - There are no keybindings or command palette entries for switching views.
+
+## Desktop updates from this fork
+
+Desktop builds look for updates in this fork's GitHub releases instead of upstream's. No code
+change is involved: build with the variable set in the shell, for example
+`T3CODE_DESKTOP_UPDATE_REPOSITORY=mattiaz9/t3code vp run dist:desktop:dmg:arm64`. The build
+script reads it from the environment only, not from `.env`. Without it, a local build has no
+update feed and its updater is disabled; check for `app-update.yml` in the built app's
+`Contents/Resources`.
+
+When merging, check that `resolveGitHubPublishConfig` in `scripts/build-desktop-artifact.ts`
+still honours `T3CODE_DESKTOP_UPDATE_REPOSITORY` and falls back to `GITHUB_REPOSITORY`.
+
+## Fork releases (stable and nightly)
+
+Upstream's `release.yml` only runs on `pingdotgg/t3code`. This fork publishes its own releases
+with `.github/workflows/release-fork.yml`, which builds every desktop target upstream ships on
+GitHub-hosted runners and publishes them as releases on this repository. CI builds pick up
+`GITHUB_REPOSITORY` as their update feed, so installs update from the fork.
+
+- **Nightly**: runs daily from the default branch (which must be `mattiaz9`; GitHub schedules only
+  run there) when there are new commits since the last nightly, or by hand with
+  `channel=nightly`. Versions are `<next patch>-nightly.<date>.<run>`, where the next patch is
+  above both `apps/desktop/package.json` and the newest fork stable. Each nightly rewrites
+  `nightly.json` on the `update-feed` release, which the patched electron-updater reads. Never
+  delete that release.
+- **Stable**: run the workflow by hand with `channel=stable` and a `version` (for example
+  `0.1.10`). It becomes the repository's latest release.
+
+The workflow only adds a file and calls the shared `release-desktop.yml` with its inputs. When
+merging, check that `release-desktop.yml` inputs, artifact names (`js-bundle`, `desktop-*`,
+`cli-*`) and the Windows job's wait for the job named `Build Linux <arch>` still match. Signing is
+optional: without the Apple and Azure secrets that `release-desktop.yml` reads, builds are
+unsigned and macOS cannot install in-app updates, so users download new versions by hand.
+Remote-server CLI updates still come from upstream (`packages/shared/src/cliRelease.ts`).
