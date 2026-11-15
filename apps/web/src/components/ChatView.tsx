@@ -2735,6 +2735,7 @@ export default function ChatView(props: ChatViewProps) {
     terminalOpen: chatViewActive && Boolean(terminalUiState.terminalOpen),
     previewFocus: isPreviewFocused(),
     previewOpen: chatViewActive ? previewPanelOpen : workspaceView === "browser",
+    rightPanelOpen,
     editableFocus: isEditableFocused(eventTarget),
     modelPickerOpen: composerRef.current?.isModelPickerOpen() ?? false,
     composerFocus:
