@@ -47,8 +47,13 @@ function Launcher(props: { keys: string; received: string[] }) {
 
 // The chat's shortcut listener registers when the chat mounts, so a launcher that opens
 // later registers after it. Tests mount the chat first and add the launcher by rerendering.
-function Chat(props: { composerKeys: string[]; launcher?: { keys: string; received: string[] } }) {
+function Chat(props: {
+  composerKeys: string[];
+  launcher?: { keys: string; received: string[] };
+  composerVisible?: boolean;
+}) {
   useChatShortcuts({
+    ...(props.composerVisible === undefined ? {} : { composerVisible: props.composerVisible }),
     enabled: true,
     keybindings: [],
     scriptKeybindings: [],
@@ -96,6 +101,18 @@ it("still types other letters into the composer while the launcher is open", asy
 
   expect(composerKeys).toEqual(["a"]);
   expect(received).toEqual([]);
+});
+
+it("types nothing into a composer that a browser or code view covers", async () => {
+  const composerKeys: string[] = [];
+  await using _screen = await render(
+    <Chat composerKeys={composerKeys} composerVisible={false} />,
+    options,
+  );
+
+  await userEvent.keyboard("a");
+
+  expect(composerKeys).toEqual([]);
 });
 
 it("leaves a non-Latin launcher letter to the launcher by its physical key", async () => {
