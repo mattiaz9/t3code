@@ -112,6 +112,7 @@ export function WorkspaceViewContent(props: {
             relativePath={codeLocation.relativePath}
             revealLine={null}
             revealRequestId={0}
+            expansionScope="code"
             onOpenFile={(relativePath) =>
               useWorkspaceViewStore.getState().openCodeFile(threadKey, relativePath)
             }
