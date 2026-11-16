@@ -8,11 +8,14 @@ name: Clean up relay preview
 # This runs under pull_request_target, so the workflow and the Alchemy program
 # come from the default branch. No PR code runs here, which is why it needs no
 # reviewer approval and why a PR cannot edit its own teardown to reach secrets.
+# Disabled on this fork. Only release workflows run. See docs/extended-features.md.
+# on:
+#   pull_request_target:
+#     types: [unlabeled, closed]
+#   schedule:
+#     - cron: "17 7 * * *"
+#   workflow_dispatch:
 on:
-  pull_request_target:
-    types: [unlabeled, closed]
-  schedule:
-    - cron: "17 7 * * *"
   workflow_dispatch:
 
 permissions:
