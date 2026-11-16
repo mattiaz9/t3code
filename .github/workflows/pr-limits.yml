@@ -7,17 +7,20 @@ name: PR Limits
 # PR_LIMITS_ENFORCE is "true". Until then every run logs what it would do. A
 # sweep reads the variable once when it starts; to stop one, cancel the run.
 
+# Disabled on this fork. Only release workflows run. See docs/extended-features.md.
+# on:
+#   pull_request_target:
+#     types: [opened, reopened]
+#   schedule:
+#     - cron: "23 5 * * *"
+#   workflow_dispatch:
+#     inputs:
+#       dry_run:
+#         description: Log what the sweep would do without labeling, commenting, or closing.
+#         type: boolean
+#         default: true
 on:
-  pull_request_target:
-    types: [opened, reopened]
-  schedule:
-    - cron: "23 5 * * *"
   workflow_dispatch:
-    inputs:
-      dry_run:
-        description: Log what the sweep would do without labeling, commenting, or closing.
-        type: boolean
-        default: true
 
 permissions:
   contents: read
