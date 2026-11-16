@@ -3686,7 +3686,10 @@ export default function ChatView(props: ChatViewProps) {
           </header>
         )}
 
-        <div className="relative flex min-h-0 min-w-0 flex-1" inert={!chatViewActive}>
+        <div
+          className={cn("relative flex min-h-0 min-w-0 flex-1", !chatViewActive && "invisible")}
+          inert={!chatViewActive}
+        >
           <ThreadFindCanvas
             findOptions={{
               skills: timelineSkills,
@@ -4297,7 +4300,7 @@ export default function ChatView(props: ChatViewProps) {
         </div>
 
         {embedded ? null : (
-          <div className="contents" inert={!chatViewActive}>
+          <div className={cn("contents", !chatViewActive && "invisible")} inert={!chatViewActive}>
             <ChatTerminalDrawers
               activeThreadKey={activeThreadKey}
               activeTerminalOpen={Boolean(terminalUiState.terminalOpen)}
@@ -4313,9 +4316,10 @@ export default function ChatView(props: ChatViewProps) {
           </div>
         )}
         {workspaceView !== "chat" && activeThreadRef && activeThreadKey ? (
-          // Covers the chat body instead of unmounting it, so the timeline, composer
-          // and terminals keep their state and sizes for the switch back to chat.
-          <div className="absolute inset-x-0 top-(--workspace-topbar-height) bottom-0 z-50 flex min-h-0 min-w-0 flex-col bg-background">
+          // The chat body stays mounted but invisible, so the timeline, composer and
+          // terminals keep their state and sizes. No z-index: a stacking context here
+          // would sit above the root-level hosted webview (z-30) and hide the page.
+          <div className="absolute inset-x-0 top-(--workspace-topbar-height) bottom-0 flex min-h-0 min-w-0 flex-col bg-background">
             <WorkspaceViewContent
               view={workspaceView}
               threadRef={activeThreadRef}
