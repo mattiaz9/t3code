@@ -401,6 +401,67 @@ describe("FileBrowserPanel", () => {
     await vi.waitFor(() => expect(onCloseSheet).toHaveBeenCalledOnce());
   });
 
+  it("keeps other folders open when a file is opened in the code explorer", async () => {
+    const renderPanel = (selectedPath: string | null) => (
+      <FileBrowserPanel
+        environmentId={EnvironmentId.make("env-files")}
+        cwd="/repo-code-open"
+        projectName="repo"
+        selectedPath={selectedPath}
+        selectedPathRevealId={selectedPath === null ? 0 : 1}
+        onOpenFile={() => {}}
+        workspaceMutationId={null}
+        expansionScope="code"
+      />
+    );
+    await using screen = await render(renderPanel(null));
+    await vi.waitFor(() => expect(findTreeRow("src/")).not.toBeNull());
+    findTreeRow("src/")!.click();
+    await vi.waitFor(() => expect(findTreeRow("src/")!.getAttribute("aria-expanded")).toBe("true"));
+
+    await screen.rerender(renderPanel("README.md"));
+    await vi.waitFor(() =>
+      expect(findTreeRow("README.md")?.getAttribute("aria-selected")).toBe("true"),
+    );
+    expect(findTreeRow("src/")!.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("keeps the files panel folders when the code explorer collapses its tree", async () => {
+    const panel = (expansionScope?: "code") => (
+      <FileBrowserPanel
+        environmentId={EnvironmentId.make("env-files")}
+        cwd="/repo-code-scope"
+        projectName="repo"
+        selectedPath={null}
+        selectedPathRevealId={0}
+        onOpenFile={() => {}}
+        workspaceMutationId={null}
+        {...(expansionScope ? { expansionScope } : {})}
+      />
+    );
+    {
+      await using _panel = await render(panel());
+      await vi.waitFor(() => expect(findTreeRow("src/")).not.toBeNull());
+      findTreeRow("src/")!.click();
+      await vi.waitFor(() =>
+        expect(findTreeRow("src/")!.getAttribute("aria-expanded")).toBe("true"),
+      );
+    }
+    {
+      await using _code = await render(panel("code"));
+      await vi.waitFor(() => expect(findTreeRow("src/")).not.toBeNull());
+      if (findTreeRow("src/")!.getAttribute("aria-expanded") === "true") {
+        findTreeRow("src/")!.click();
+        await vi.waitFor(() =>
+          expect(findTreeRow("src/")!.getAttribute("aria-expanded")).toBe("false"),
+        );
+      }
+    }
+    await using _panel = await render(panel());
+    await vi.waitFor(() => expect(findTreeRow("src/")).not.toBeNull());
+    await vi.waitFor(() => expect(findTreeRow("src/")!.getAttribute("aria-expanded")).toBe("true"));
+  });
+
   it("keeps expanded folders when the panel remounts", async () => {
     const panel = () => (
       <FileBrowserPanel

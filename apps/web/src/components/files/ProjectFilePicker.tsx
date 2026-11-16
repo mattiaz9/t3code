@@ -2,12 +2,13 @@ import { useAtomValue } from "@effect/atom-react";
 import { msg, T, useGT, useMessages } from "gt-react";
 import { useState, type ReactNode } from "react";
 
+import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { MessageResolver } from "~/i18n/messages";
 
 import { useActiveProjectTarget, type ActiveProjectTarget } from "~/hooks/useActiveProjectTarget";
 import { useTheme } from "~/hooks/useTheme";
-import { useRightPanelStore } from "~/rightPanelStore";
 import { primaryServerKeybindingsAtom } from "~/state/server";
+import { useWorkspaceViewStore } from "~/workspaceViewStore";
 
 import { PierreEntryIcon } from "../chat/PierreEntryIcon";
 import { CommandPaletteContent } from "../CommandPaletteContent";
@@ -119,7 +120,7 @@ function OpenProjectFilePicker(props: ProjectFilePickerProps & { target: ActiveP
     ),
     icon: <PierreEntryIcon pathValue={match.path} kind="file" theme={resolvedTheme} />,
     run: async () => {
-      useRightPanelStore.getState().openFile(target.threadRef, match.path);
+      useWorkspaceViewStore.getState().openCodeFile(scopedThreadKey(target.threadRef), match.path);
     },
   }));
 

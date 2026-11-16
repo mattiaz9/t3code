@@ -142,6 +142,12 @@ function nearestToRoot(paths: readonly string[]): readonly string[] {
     .slice(0, MAX_STORED_PATHS_PER_ROOT);
 }
 
+/** Right-panel and code-view trees persist separately so one cannot collapse the other. */
+export function fileTreeExpansionRoot(environmentId: string, cwd: string, scope?: string): string {
+  const root = `${environmentId}:${cwd}`;
+  return scope === undefined || scope.length === 0 ? root : `${root}:${scope}`;
+}
+
 export function readExpandedDirectories(root: string): readonly string[] {
   return nearestToRoot(
     readStoredExpandedDirectories().find((entry) => entry.root === root)?.paths ?? [],

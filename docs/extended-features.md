@@ -28,6 +28,10 @@ as it was, because their open state is never changed, only ignored.
 The selected view and the Code view's open file are per thread and in memory only, so a reload
 returns to Chat. Embedded side-chat panes always render as Chat.
 
+**Go to file** (`Cmd/Ctrl+P`) opens the chosen file in the Code view and switches to it. The Code
+view's file tree stores its expanded folders separately from the right panel's Files tree, so
+opening a file there leaves the Files tree expanded as it was.
+
 ### Where it lives
 
 - `apps/web/src/workspaceViewStore.ts`: per-thread view and Code view location (zustand).
@@ -67,7 +71,8 @@ returns to Chat. Embedded side-chat panes always render as Chat.
 ### Not covered
 
 - Mobile (`apps/mobile`) has its own navigation and does not have these views.
-- There are no keybindings or command palette entries for switching views.
+- There is no command whose only job is switching views. Go to file (`Cmd/Ctrl+P`) does switch to
+  Code, because that is where the file opens.
 
 ## Desktop updates from this fork
 
@@ -103,3 +108,13 @@ merging, check that `release-desktop.yml` inputs, artifact names (`js-bundle`, `
 optional: without the Apple and Azure secrets that `release-desktop.yml` reads, builds are
 unsigned and macOS cannot install in-app updates, so users download new versions by hand.
 Remote-server CLI updates still come from upstream (`packages/shared/src/cliRelease.ts`).
+
+## CI and pull request checks are off
+
+This fork runs release workflows only. Every other file in `.github/workflows` keeps its original
+`on:` block commented out, with a `workflow_dispatch` trigger in its place, so pushes and pull
+requests do not start checks. The workflows that stay active are `release-fork.yml`, `release.yml`,
+`release-desktop.yml`, and `publish-aur.yml` (the AUR step `release.yml` calls).
+
+When merging upstream, leave those triggers commented on any workflow that is not one of those
+four. Upstream will otherwise turn CI, previews, and issue automation back on.
