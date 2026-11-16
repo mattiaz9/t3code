@@ -31,6 +31,7 @@ import { createFileTreeDragMentionController } from "./fileTreeDragMention";
 import {
   areAllDirectoriesExpanded,
   coalesceReentrantCalls,
+  fileTreeExpansionRoot,
   readExpandedDirectories,
   setAllDirectoriesExpanded,
   writeExpandedDirectories,
@@ -55,6 +56,8 @@ interface FileBrowserPanelProps {
   onRefreshSelectedFile?: () => void;
   workspaceMutationId: string | null;
   answersPanelFind?: boolean;
+  /** Separates saved folder expansion from the right-panel Files tree. */
+  expansionScope?: string;
 }
 
 function treePath(entry: ProjectEntry): string {
@@ -157,6 +160,7 @@ export default function FileBrowserPanel({
   workspaceMutationId,
   hostFolder = false,
   answersPanelFind = false,
+  expansionScope,
 }: FileBrowserPanelProps) {
   const panelPath = (relativePath: string) =>
     hostFolder ? joinHostPath(cwd, relativePath) : relativePath;
@@ -345,7 +349,7 @@ export default function FileBrowserPanel({
     return subscribePreviewAction(onPanelAction);
   }, [answersPanelFind]);
   const expandedPathsRef = useRef(new Set<string>());
-  const expansionRoot = `${environmentId}:${cwd}`;
+  const expansionRoot = fileTreeExpansionRoot(environmentId, cwd, expansionScope);
   // Folders expanded when the panel last unmounted; each reopens once lazy loading lists it.
   const [pendingExpandedPaths] = useState(() => new Set(readExpandedDirectories(expansionRoot)));
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes to the Pierre tree model to load directories as they are expanded

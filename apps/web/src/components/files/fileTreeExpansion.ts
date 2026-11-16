@@ -119,6 +119,12 @@ function readStoredExpandedDirectories() {
   }
 }
 
+/** Right-panel and code-view trees persist separately so one cannot collapse the other. */
+export function fileTreeExpansionRoot(environmentId: string, cwd: string, scope?: string): string {
+  const root = `${environmentId}:${cwd}`;
+  return scope === undefined || scope.length === 0 ? root : `${root}:${scope}`;
+}
+
 export function readExpandedDirectories(root: string): readonly string[] {
   return readStoredExpandedDirectories().find((entry) => entry.root === root)?.paths ?? [];
 }

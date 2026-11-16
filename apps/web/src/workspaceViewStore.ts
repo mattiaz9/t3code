@@ -38,7 +38,13 @@ export const useWorkspaceViewStore = create<WorkspaceViewStoreState>()((set) => 
     ),
   openCodeFile: (threadKey, relativePath) =>
     set((state) => ({
-      codeLocationByThreadKey: { ...state.codeLocationByThreadKey, [threadKey]: { relativePath } },
+      ...(state.viewByThreadKey[threadKey] === "code"
+        ? {}
+        : { viewByThreadKey: { ...state.viewByThreadKey, [threadKey]: "code" as const } }),
+      codeLocationByThreadKey: {
+        ...state.codeLocationByThreadKey,
+        [threadKey]: { relativePath },
+      },
     })),
   navigateCodeFolder: (threadKey, relativePath, folderTrail) =>
     set((state) => ({
