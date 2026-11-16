@@ -21,6 +21,8 @@ export function FileExplorerPane({
   defaultWidthFraction,
   minWidth = MIN_WIDTH,
   resizeLabel = "Resize file explorer",
+  side = "right",
+  className,
 }: {
   resizable: boolean;
   children: ReactNode;
@@ -29,15 +31,19 @@ export function FileExplorerPane({
   defaultWidthFraction?: number;
   minWidth?: number;
   resizeLabel?: string;
+  /** Which side of the row the column sits on. The handle is on the inner edge. */
+  side?: "left" | "right";
+  className?: string;
 }) {
   const [maxWidth, setMaxWidth] = useState(MAX_WIDTH);
   const [responsiveDefaultWidth, setResponsiveDefaultWidth] = useState(defaultWidth);
+  const handleEdge = side === "left" ? "right" : "left";
   const { width, setWidth, handlers } = useResizableWidth({
     storageKey,
     defaultWidth: responsiveDefaultWidth,
     minWidth,
     maxWidth,
-    edge: "left",
+    edge: handleEdge,
   });
 
   return (
@@ -64,7 +70,12 @@ export function FileExplorerPane({
       aria-label="File explorer"
       className={cn(
         "relative flex min-h-0 min-w-0 shrink-0 bg-background",
-        resizable ? "border-l border-border/60" : "flex-1",
+        resizable
+          ? side === "left"
+            ? "border-r border-border/60"
+            : "border-l border-border/60"
+          : "flex-1",
+        className,
       )}
       style={
         resizable
@@ -78,6 +89,7 @@ export function FileExplorerPane({
       {resizable ? (
         <RightPanelResizeHandle
           handlers={handlers}
+          edge={handleEdge}
           label={resizeLabel}
           tabIndex={0}
           aria-valuenow={width}
@@ -88,10 +100,10 @@ export function FileExplorerPane({
             let nextWidth: number;
             switch (event.key) {
               case "ArrowLeft":
-                nextWidth = width + 16;
+                nextWidth = width + (side === "right" ? 16 : -16);
                 break;
               case "ArrowRight":
-                nextWidth = width - 16;
+                nextWidth = width + (side === "right" ? -16 : 16);
                 break;
               case "Home":
                 nextWidth = minWidth;
