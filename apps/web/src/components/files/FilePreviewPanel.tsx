@@ -168,6 +168,10 @@ interface FilePreviewPanelProps {
   workspaceMutationId: string | null;
   /** Separates this tree's saved folders from the right-panel Files tree. */
   expansionScope?: string;
+  /** Code view keeps its tree on the left; the right panel keeps it on the right. */
+  explorerSide?: "left" | "right";
+  explorerOpenStorageKey?: string;
+  explorerWidthStorageKey?: string;
 }
 
 const MermaidFilePreview = lazy(() =>
@@ -1259,9 +1263,9 @@ function renderedToggleLabel(
   return rendered ? resolve(msg("Show HTML source")) : resolve(msg("Show rendered page"));
 }
 
-function initialExplorerOpen(): boolean {
+function initialExplorerOpen(storageKey: string): boolean {
   try {
-    return getLocalStorageItem(FILE_EXPLORER_STORAGE_KEY, Schema.Boolean) ?? true;
+    return getLocalStorageItem(storageKey, Schema.Boolean) ?? true;
   } catch (error) {
     console.error(error);
     return true;
@@ -1289,6 +1293,9 @@ export default function FilePreviewPanel({
   selectedFilePending,
   workspaceMutationId,
   expansionScope,
+  explorerSide = "right",
+  explorerOpenStorageKey = FILE_EXPLORER_STORAGE_KEY,
+  explorerWidthStorageKey = "t3code.fileExplorerWidth",
 }: FilePreviewPanelProps) {
   const relativePath =
     attachment === undefined ? resolveFilePreviewPath(requestedPath, cwd) : requestedPath;
@@ -1358,7 +1365,9 @@ export default function FilePreviewPanel({
     serverConfig?.shellRevealInFileManager === true;
   // Everything preview-related keys off previewPath; a folder has no preview.
   const previewPath = isFolder ? null : relativePath;
-  const [explorerOpen, setExplorerOpen] = useState(initialExplorerOpen);
+  const [explorerOpen, setExplorerOpen] = useState(() =>
+    initialExplorerOpen(explorerOpenStorageKey),
+  );
   const showExplorer = shouldShowFileExplorer({
     relativePath: previewPath,
     explorerOpen,
@@ -1553,7 +1562,7 @@ export default function FilePreviewPanel({
     setExplorerOpen((current) => {
       const next = !current;
       try {
-        setLocalStorageItem(FILE_EXPLORER_STORAGE_KEY, next, Schema.Boolean);
+        setLocalStorageItem(explorerOpenStorageKey, next, Schema.Boolean);
       } catch (error) {
         console.error(error);
       }
@@ -1916,7 +1925,12 @@ export default function FilePreviewPanel({
           ) : null}
         </div>
         {showExplorer ? (
-          <FileExplorerPane resizable={Boolean(previewPath)}>
+          <FileExplorerPane
+            className={explorerSide === "left" ? "order-first" : undefined}
+            resizable={Boolean(previewPath)}
+            side={explorerSide}
+            storageKey={explorerWidthStorageKey}
+          >
             <div
               className="contents"
               onClick={focusEditorOnTreeRowClickOrEnter}

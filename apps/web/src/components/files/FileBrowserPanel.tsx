@@ -452,8 +452,9 @@ export default function FileBrowserPanel({
     entryKindsRef.current = entryKinds;
     const previousTreePaths = previousTreePathsRef.current;
     previousTreePathsRef.current = treePaths;
+    const expandedPaths = [...expandedPathsRef.current, ...pendingExpandedPaths];
     if (previousTreePaths === null) {
-      model.resetPaths(treePaths);
+      model.resetPaths(treePaths, { initialExpandedPaths: expandedPaths });
       return;
     }
     const updates = buildFileTreePathUpdates(previousTreePaths, treePaths);
@@ -461,7 +462,7 @@ export default function FileBrowserPanel({
       // A reset keeps old search matches, so search closes first and recomputes afterwards.
       const activeSearch = model.isSearchOpen() ? model.getSearchValue() : null;
       if (activeSearch !== null) model.closeSearch();
-      model.resetPaths(treePaths, { initialExpandedPaths: [...expandedPathsRef.current] });
+      model.resetPaths(treePaths, { initialExpandedPaths: expandedPaths });
       if (activeSearch !== null) model.setSearch(activeSearch);
     } else if (updates.length > 0) {
       model.batch(updates);
@@ -471,7 +472,7 @@ export default function FileBrowserPanel({
     if (followedRevealRef.current !== null) {
       model.scrollToPath(followedRevealRef.current, { focus: false, offset: "center" });
     }
-  }, [ready, entryKinds, model, treePaths]);
+  }, [entryKinds, model, pendingExpandedPaths, ready, treePaths]);
 
   // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- expands every directory in the Pierre tree model while expand-all is on and no search is active
   useEffect(() => {
