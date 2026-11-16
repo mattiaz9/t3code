@@ -45,11 +45,14 @@ returns to Chat. Embedded side-chat panes always render as Chat.
   from it (presence, maximize, titlebar ownership) then treats the panel as closed outside Chat,
   and `ChatRightPanel` itself only renders when `chatViewActive`. If upstream adds new uses of
   `rightPanelState.isOpen`, decide whether they need the same gate.
-- The chat body is covered, not unmounted: the canvas wrapper and the terminal drawers (wrapped in
-  a `contents` div) get `inert={!chatViewActive}`, and the overlay sits above them at `z-50`
-  inside the chat column, which is `relative`. The terminal drawer's `aside` is `z-45`, so the
-  overlay must stay above it. Unmounting or `display: none` would refit terminals to zero size and
-  lose timeline scroll.
+- The chat body is hidden, not unmounted: the canvas wrapper and the terminal drawers (wrapped in
+  a `contents` div) get `inert` and `invisible` (`visibility: hidden`) outside Chat, and the
+  overlay is positioned inside the chat column, which is `relative`. Unmounting or `display: none`
+  would refit terminals to zero size and lose timeline scroll.
+- The overlay must not get a z-index. On desktop the page is a `fixed` webview at the app root
+  (`ElectronBrowserHost`, z-30 by default), so a stacking context on the overlay would paint over
+  it and leave the Browser view blank. The find bar and agent cursor (z-40) inside the overlay must
+  also stay above the webview, so raising the webview's z-index is not a fix either.
 - Any new panel-opening shortcut or desktop menu action that upstream adds to `ChatView` needs the
   same `chatViewActive` gate. `useRightPanelActions` receives `embedded: embedded || !chatViewActive`
   only to drop its `preview.toggle` bus subscription.
