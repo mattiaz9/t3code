@@ -29,8 +29,9 @@ The selected view and the Code view's open file are per thread and in memory onl
 returns to Chat. Embedded side-chat panes always render as Chat.
 
 **Go to file** (`Cmd/Ctrl+P`) opens the chosen file in the Code view and switches to it. The Code
-view's file tree stores its expanded folders separately from the right panel's Files tree, so
-opening a file there leaves the Files tree expanded as it was.
+view's file tree sits on the left of the file. Opening a file leaves that tree open, at its own
+width, with its own expanded folders. It does not use the right panel's explorer width or
+hide-explorer setting.
 
 ### Where it lives
 
