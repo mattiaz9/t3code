@@ -72,7 +72,13 @@ jobs:
               return;
             }
             const { shouldReleaseNightly } = require('./.github/scripts/check-nightly-release.cjs');
-            core.setOutput('should_release', String(await shouldReleaseNightly({ github, context, core })));
+            // Syncing upstream rebases mattiaz9, so the last nightly tag is no longer an ancestor.
+            core.setOutput('should_release', String(await shouldReleaseNightly({
+              github,
+              context,
+              core,
+              releaseWhenDiverged: true,
+            })));
 
       - id: meta
         name: Resolve release version

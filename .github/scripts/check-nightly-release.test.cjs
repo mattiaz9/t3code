@@ -185,6 +185,16 @@ for (const status of ["behind", "diverged"]) {
   });
 }
 
+test("releases a rewritten default branch that diverged from the last nightly", async () => {
+  const { options } = fixture({ comparisonStatus: "diverged" });
+  assert.equal(await shouldReleaseNightly({ ...options, releaseWhenDiverged: true }), true);
+});
+
+test("still skips a rewritten branch that has only moved behind the last nightly", async () => {
+  const { options } = fixture({ comparisonStatus: "behind" });
+  assert.equal(await shouldReleaseNightly({ ...options, releaseWhenDiverged: true }), false);
+});
+
 const { resolveLatestNightlyCommit } = require("./check-nightly-release.cjs");
 
 function nightlyCommitFixture({ releases, pages, commitSha = "abc123" }) {
