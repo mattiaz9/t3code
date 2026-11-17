@@ -114,6 +114,7 @@ export function WorkspaceViewContent(props: {
             revealRequestId={0}
             expansionScope="code"
             explorerSide="left"
+            pinExplorer
             explorerOpenStorageKey="t3code.codeViewFileExplorerOpen"
             explorerWidthStorageKey="t3code.codeViewFileExplorerWidth"
             onOpenFile={(relativePath) =>

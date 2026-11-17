@@ -172,6 +172,8 @@ interface FilePreviewPanelProps {
   explorerSide?: "left" | "right";
   explorerOpenStorageKey?: string;
   explorerWidthStorageKey?: string;
+  /** Stay visible beside an open file. The Code view does not use the Files panel hide setting. */
+  pinExplorer?: boolean;
 }
 
 const MermaidFilePreview = lazy(() =>
@@ -1296,6 +1298,7 @@ export default function FilePreviewPanel({
   explorerSide = "right",
   explorerOpenStorageKey = FILE_EXPLORER_STORAGE_KEY,
   explorerWidthStorageKey = "t3code.fileExplorerWidth",
+  pinExplorer = false,
 }: FilePreviewPanelProps) {
   const relativePath =
     attachment === undefined ? resolveFilePreviewPath(requestedPath, cwd) : requestedPath;
@@ -1372,6 +1375,7 @@ export default function FilePreviewPanel({
     relativePath: previewPath,
     explorerOpen,
     attachmentOpen: attachment !== undefined,
+    pinned: pinExplorer,
   });
   const [renderMarkdownPreferred, setRenderMarkdownPreferred] = useLocalStorage(
     RENDER_MARKDOWN_STORAGE_KEY,
@@ -1699,7 +1703,7 @@ export default function FilePreviewPanel({
               <Globe2 className="size-3.5" />
             </FileSurfaceAction>
           ) : null}
-          {!isHostFile && previewPath !== null ? (
+          {!pinExplorer && !isHostFile && previewPath !== null ? (
             <FileSurfaceAction
               label={explorerOpen ? gt("Hide file explorer") : gt("Show file explorer")}
               pressed={explorerOpen}

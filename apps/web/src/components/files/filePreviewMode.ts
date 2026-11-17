@@ -41,10 +41,13 @@ export function shouldShowFileExplorer(input: {
   readonly relativePath: string | null;
   readonly explorerOpen: boolean;
   readonly attachmentOpen: boolean;
+  /** Code view keeps its tree beside an open file. The Files panel can hide its tree then. */
+  readonly pinned?: boolean;
 }): boolean {
   if (input.attachmentOpen || (input.relativePath && isHostPath(input.relativePath))) {
     return false;
   }
+  if (input.pinned) return true;
   return input.explorerOpen || input.relativePath === null;
 }
 
