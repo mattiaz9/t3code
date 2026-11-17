@@ -113,6 +113,24 @@ describe("resolveFilePreviewPath", () => {
       ).toBe(true);
     }
   });
+
+  it("keeps a pinned explorer open beside a file when the Files panel would hide its tree", () => {
+    expect(
+      shouldShowFileExplorer({
+        relativePath: "src/main.ts",
+        explorerOpen: false,
+        attachmentOpen: false,
+        pinned: true,
+      }),
+    ).toBe(true);
+    expect(
+      shouldShowFileExplorer({
+        relativePath: "src/main.ts",
+        explorerOpen: false,
+        attachmentOpen: false,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("workspaceAssetResource", () => {
