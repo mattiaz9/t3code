@@ -30,8 +30,8 @@ returns to Chat. Embedded side-chat panes always render as Chat.
 
 **Go to file** (`Cmd/Ctrl+P`) opens the chosen file in the Code view and switches to it. The Code
 view's file tree sits on the left of the file. Opening a file leaves that tree open, at its own
-width, with its own expanded folders. It does not use the right panel's explorer width or
-hide-explorer setting.
+width, with its own expanded folders. `pinExplorer` keeps it visible beside the file. It does not
+use the right panel's explorer width or hide-explorer setting, and it has no hide control.
 
 ### Where it lives
 
