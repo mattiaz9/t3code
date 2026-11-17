@@ -97,7 +97,11 @@ GitHub-hosted runners and publishes them as releases on this repository. CI buil
   `channel=nightly`. Versions are `<next patch>-nightly.<date>.<run>`, where the next patch is
   above both `apps/desktop/package.json` and the newest fork stable. Each nightly rewrites
   `nightly.json` on the `update-feed` release, which the patched electron-updater reads. Never
-  delete that release.
+  delete that release. An upstream sync that rebases `mattiaz9` leaves the last nightly tag off
+  the branch; the scheduled run still releases that rewritten tip. It still skips when the branch
+  has only moved backward behind the tag, or when nothing new has landed inside the six-hour gap.
+  `shouldReleaseNightly` keeps the upstream default (skip on divergence). Only `release-fork.yml`
+  passes `releaseWhenDiverged: true`. Keep that call when merging.
 - **Stable**: run the workflow by hand with `channel=stable` and a `version` (for example
   `0.1.10`). It becomes the repository's latest release.
 

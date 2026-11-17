@@ -74,7 +74,13 @@ async function findLatestNightly({ github, context, isSettled = () => false }) {
   return latest;
 }
 
-async function shouldReleaseNightly({ github, context, core, now = Date.now() }) {
+async function shouldReleaseNightly({
+  github,
+  context,
+  core,
+  now = Date.now(),
+  releaseWhenDiverged = false,
+}) {
   const isInGap = (release) => now - Date.parse(release.publishedAt) < MINIMUM_RELEASE_GAP_MS;
   // Any nightly inside the gap means the newest one is too, so stop reading.
   const lastNightly = await findLatestNightly({ github, context, isSettled: isInGap });
@@ -95,6 +101,14 @@ async function shouldReleaseNightly({ github, context, core, now = Date.now() })
     basehead: `${tag}...${context.sha}`,
     per_page: 1,
   });
+  // A rewritten default branch is no longer a descendant of the last nightly tag.
+  // Callers that publish that branch anyway opt in; everyone else still skips.
+  if (comparison.status === "diverged" && releaseWhenDiverged) {
+    core.info(
+      `Candidate commit diverged from ${tag}. The default branch was rewritten, so this nightly releases.`,
+    );
+    return true;
+  }
   if (comparison.status !== "ahead") {
     core.info(`Candidate commit is ${comparison.status} relative to ${tag}. Skipping.`);
     return false;
