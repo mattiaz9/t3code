@@ -6,6 +6,7 @@ import type {
   ResolvedKeybindingsConfig,
   ScopedThreadRef,
 } from "@t3tools/contracts";
+import { msg, useGT, useMessages } from "gt-react";
 import { CodeXmlIcon, GlobeIcon, MessageSquareIcon } from "lucide-react";
 import { lazy, memo, Suspense } from "react";
 
@@ -24,9 +25,13 @@ const PreviewPanel = lazy(() =>
 const FilePreviewPanel = lazy(() => import("../files/FilePreviewPanel"));
 
 const VIEW_OPTIONS = [
-  { view: "chat", label: "Chat", Icon: MessageSquareIcon },
-  { view: "browser", label: "Browser", Icon: GlobeIcon },
-  { view: "code", label: "Code", Icon: CodeXmlIcon },
+  { view: "chat", label: msg("Chat", { $context: "workspace view" }), Icon: MessageSquareIcon },
+  {
+    view: "browser",
+    label: msg("Browser", { $context: "workspace view" }),
+    Icon: GlobeIcon,
+  },
+  { view: "code", label: msg("Code", { $context: "workspace view" }), Icon: CodeXmlIcon },
 ] as const;
 
 export const WorkspaceViewTabs = memo(function WorkspaceViewTabs(props: {
@@ -34,9 +39,11 @@ export const WorkspaceViewTabs = memo(function WorkspaceViewTabs(props: {
   readonly codeAvailable: boolean;
   readonly onViewChange: (view: WorkspaceView) => void;
 }) {
+  const gt = useGT();
+  const m = useMessages();
   return (
     <ToggleGroup
-      aria-label="Workspace view"
+      aria-label={gt("Workspace view")}
       variant="segmented"
       value={[props.view]}
       onValueChange={(next) => {
@@ -52,7 +59,7 @@ export const WorkspaceViewTabs = memo(function WorkspaceViewTabs(props: {
           data-workspace-view-tab={view}
         >
           <Icon aria-hidden className="size-3.5" />
-          <span className="@max-[40rem]/chat-header:sr-only">{label}</span>
+          <span className="@max-[40rem]/chat-header:sr-only">{m(label)}</span>
         </Toggle>
       ))}
     </ToggleGroup>

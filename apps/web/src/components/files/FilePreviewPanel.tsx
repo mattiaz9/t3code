@@ -1987,7 +1987,7 @@ function FilePreviewPanelContent({
         </div>
         {showExplorer ? (
           <FileExplorerPane
-            className={explorerSide === "left" ? "order-first" : undefined}
+            {...(explorerSide === "left" ? { className: "order-first" } : {})}
             resizable={Boolean(previewPath)}
             side={explorerSide}
             storageKey={explorerWidthStorageKey}
@@ -2016,7 +2016,7 @@ function FilePreviewPanelContent({
                   setRenderMarkdownPreferred(true);
                   onOpenFile(path);
                 }}
-                expansionScope={expansionScope}
+                {...(expansionScope !== undefined ? { expansionScope } : {})}
                 answersPanelFind={!previewPath}
                 workspaceMutationId={workspaceMutationId}
                 {...(previewPath && !isMedia && !isPdf
