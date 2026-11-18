@@ -1850,7 +1850,7 @@ export default function FilePreviewPanel({
         </div>
         {showExplorer ? (
           <FileExplorerPane
-            className={explorerSide === "left" ? "order-first" : undefined}
+            {...(explorerSide === "left" ? { className: "order-first" } : {})}
             resizable={Boolean(previewPath)}
             side={explorerSide}
             storageKey={explorerWidthStorageKey}
@@ -1875,7 +1875,7 @@ export default function FilePreviewPanel({
                 }
                 selectedPathRevealId={revealRequestId}
                 onOpenFile={onOpenFile}
-                expansionScope={expansionScope}
+                {...(expansionScope !== undefined ? { expansionScope } : {})}
                 answersPanelFind={!previewPath}
                 workspaceMutationId={workspaceMutationId}
                 {...(previewPath && !isMedia && !isPdf
