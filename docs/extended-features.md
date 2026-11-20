@@ -109,20 +109,27 @@ GitHub-hosted runners and publishes them as releases on this repository. CI buil
 
 The workflow only adds a file and calls the shared `release-desktop.yml` with its inputs. When
 merging, check that `release-desktop.yml` inputs, artifact names (`js-bundle`, `desktop-*`,
-`cli-*`) and the Windows job's wait for the job named `Build Linux <arch>` still match. Signing is
-optional: without the Apple and Azure secrets that `release-desktop.yml` reads, builds are
-unsigned and macOS cannot install in-app updates, so users download new versions by hand.
+`cli-*`) and the Windows job's wait for the job named `Build Linux <arch>` still match. macOS
+legs run on `macos-15`. If GitHub cancels one before it starts, `release-fork-retry.yml`
+re-runs that release once. A leg that started and failed is not re-run. Keep that workflow's
+trigger when merging. Signing is optional: without the Apple and Azure secrets that
+`release-desktop.yml` reads, builds are unsigned and macOS cannot install in-app updates, so
+users download new versions by hand.
 Remote-server CLI updates still come from upstream (`packages/shared/src/cliRelease.ts`).
 
 ## CI and pull request checks are off
 
 This fork runs release workflows only. Every other file in `.github/workflows` keeps its original
 `on:` block commented out, with a `workflow_dispatch` trigger in its place, so pushes and pull
-requests do not start checks. The workflows that stay active are `release-fork.yml`, `release.yml`,
-`release-desktop.yml`, and `publish-aur.yml` (the AUR step `release.yml` calls).
+requests do not start checks. The workflows that stay active are `release-fork.yml`,
+`release-fork-retry.yml`, `release.yml`, `release-desktop.yml`, and `publish-aur.yml` (the AUR
+step `release.yml` calls).
 
 When merging upstream, leave those triggers commented on any workflow that is not one of those
-four. Upstream will otherwise turn CI, previews, and issue automation back on.
+five. Upstream will otherwise turn CI, previews, and issue automation back on. A reusable
+workflow that only declares `workflow_call` keeps that trigger: `mobile-eas-preview-build.yml`
+and `mobile-eas-production-build.yml` have no push or pull request trigger, and their callers
+are dispatch-only. Commenting out `workflow_call` would stop those callers from invoking them.
 
 ## Cursor plugin skills
 
