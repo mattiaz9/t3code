@@ -123,3 +123,38 @@ requests do not start checks. The workflows that stay active are `release-fork.y
 
 When merging upstream, leave those triggers commented on any workflow that is not one of those
 four. Upstream will otherwise turn CI, previews, and issue automation back on.
+
+## Cursor plugin skills
+
+Upstream [pingdotgg/t3code#36382](https://github.com/pingdotgg/t3code/pull/36382) is still open.
+This fork carries that fix: skills shipped by Cursor plugins show in the composer's `$` picker,
+and skills from an enabled team marketplace plugin are listed to the agent on the first message
+of a conversation (and again after a compaction or rollback). The Cursor SDK only puts public
+marketplace plugins in the model's own catalog, so a team plugin's skill travels in the prompt.
+
+When merging `main`, keep this behavior if that pull request has not landed. If it has, take
+upstream's copy and delete this section. The files below are the ones that conflict.
+
+### Where it lives
+
+- `packages/provider-cursor/src/server/enabledPlugins.ts`: reads the account's enabled plugins.
+- `packages/provider-cursor/src/server/skills.ts`: scans `~/.cursor/plugins/local` and the newest
+  completed cache revision of each enabled plugin.
+- `packages/provider-cursor/src/server/adapter.ts`: rewrites `$name` to `/name`, attaches an
+  invoked skill's text, and appends the team-plugin catalog.
+- `packages/provider-cursor/src/server/driver.ts`: caches the enabled-plugin lookup for a minute
+  and passes it into skill discovery.
+
+### Invariants to keep when merging
+
+- A failed or timed-out lookup is `undefined`, not `[]`. The session does not keep skills
+  discovered from that failure, and it does not mark the catalog as delivered, so the next
+  message asks again. The failed answer is still cached for a minute.
+- Only the cache revision whose `.cache-complete` marker is newest is read.
+- A team plugin (`marketplace !== "cursor-public"`) is `userInvocationOnly` in the picker. Its
+  skill is also named in the prompt until the catalog has been delivered.
+- With no team plugin enabled, the first turn skips the plugin scan. Folder skills and local
+  plugins are still listed when the account lookup fails.
+- A compaction (`/compress`) or a thread rollback clears the delivered flag so the catalog is
+  sent again. A conversation this process has not sent to is assumed already told when
+  `nativeThreadHasTurns` (or `runOrdinal > 1`) is set.

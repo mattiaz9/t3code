@@ -34,6 +34,7 @@ import {
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
 } from "@t3tools/provider-core/server/snapshotSettings";
+import { type CursorEnabledPlugin, readCursorEnabledPlugins } from "./enabledPlugins.ts";
 import { probeCursorSkills } from "./skills.ts";
 import { makeCursorAuth } from "./auth.ts";
 import * as CursorCredentialStore from "./credentialStore.ts";
@@ -164,11 +165,25 @@ export const CursorDriver: ProviderDriver<
         },
       });
 
+    // Every thread's first turn reads this, so one answer serves the turns that start together.
+    const readEnabledPlugins = yield* Effect.cachedWithTTL(
+      auth.readApiKey.pipe(
+        Effect.flatMap((apiKey) =>
+          apiKey === undefined ? Effect.succeed([]) : readCursorEnabledPlugins(apiKey),
+        ),
+        Effect.provideService(HttpClient.HttpClient, httpClient),
+        // A failed lookup is undefined, so a session asks again instead of keeping an empty answer.
+        Effect.orElseSucceed((): ReadonlyArray<CursorEnabledPlugin> | undefined => undefined),
+      ),
+      "1 minute",
+    );
+
     let catalogModels: ReadonlyArray<ServerProviderModel> = [];
     let catalogSdkModels: ReadonlyArray<SDKModel> = [];
     const orchestrationAdapter = yield* makeCursorAdapterV2({
       instanceId,
       environment: processEnv,
+      readEnabledPlugins,
       getModels: () => catalogModels,
       getSdkModels: () => catalogSdkModels,
     }).pipe(
@@ -319,7 +334,11 @@ export const CursorDriver: ProviderDriver<
           ? snapshot.getSnapshot
           : Effect.all([
               snapshot.getSnapshot,
-              probeCursorSkills(cwd, processEnv).pipe(
+              readEnabledPlugins.pipe(
+                Effect.flatMap((enabledPlugins) =>
+                  // Signed out or offline, folder and local plugin skills are still listed.
+                  probeCursorSkills(cwd, processEnv, enabledPlugins ?? []),
+                ),
                 Effect.provideService(FileSystem.FileSystem, fileSystem),
                 Effect.provideService(Path.Path, path),
                 Effect.mapError(
