@@ -52,11 +52,13 @@ import { CursorTransportFailure } from "./transportFailure.ts";
 import { cursorContextWindowTokens, cursorSdkModelSelection } from "./sdkModel.ts";
 import {
   appendCursorInvokedSkills,
+  appendCursorSkillCatalog,
   cursorSlashSkillNames,
-  discoverCursorSkills,
+  discoverCursorSessionSkills,
   hasCursorSkillMention,
   rewriteCursorSkillMentions,
 } from "./skills.ts";
+import { CURSOR_PUBLIC_MARKETPLACE, type CursorEnabledPlugin } from "./enabledPlugins.ts";
 import { cursorWorkspaceMcpServers } from "./workspaceMcpServers.ts";
 import { t3OrchestrationPrompt } from "@t3tools/provider-core/server/orchestrationInstructions";
 import { buildRuntimeInstructions } from "@t3tools/provider-core/server/runtimeInstructions";
@@ -1020,6 +1022,8 @@ export interface CursorAdapterV2Options {
   readonly environment: NodeJS.ProcessEnv;
   readonly getModels?: () => ReadonlyArray<ServerProviderModel>;
   readonly getSdkModels?: () => ReadonlyArray<SDKModel>;
+  /** Undefined when the lookup failed, so the answer is not kept for the session. */
+  readonly readEnabledPlugins?: Effect.Effect<ReadonlyArray<CursorEnabledPlugin> | undefined>;
 }
 
 export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
@@ -1063,6 +1067,7 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
           readonly agent: string;
           readonly orchestration: boolean;
           readonly device: boolean;
+          readonly skills: boolean;
         } | null>(null);
         // Cursor drops a run cancelled before its first checkpoint, so the next message carries its prompt.
         const interruptedPrompt = yield* Ref.make<{
@@ -2587,25 +2592,57 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
           return next;
         });
 
-        let cursorSkills: ReadonlyMap<string, ServerProviderSkill> | undefined;
+        const readEnabledPlugins = adapterOptions.readEnabledPlugins ?? Effect.succeed([]);
+        let cursorSkills:
+          | {
+              readonly invocable: ReadonlyMap<string, ServerProviderSkill>;
+              readonly unlisted: ReadonlyArray<ServerProviderSkill>;
+            }
+          | undefined;
+        const loadCursorSkills = Effect.fn("CursorAdapterV2.loadCursorSkills")(function* (
+          cwd: string | undefined,
+          enabledPlugins: ReadonlyArray<CursorEnabledPlugin> | undefined,
+        ) {
+          const { skills, unlisted } = yield* discoverCursorSessionSkills(
+            cwd,
+            adapterOptions.environment,
+            enabledPlugins ?? [],
+          ).pipe(
+            Effect.provideService(FileSystem.FileSystem, fileSystem),
+            Effect.provideService(Path.Path, path),
+          );
+          const loaded = {
+            invocable: new Map(
+              skills
+                .filter((skill) => skill.enabled && skill.userInvocable !== false)
+                .map((skill) => [skill.name, skill]),
+            ),
+            unlisted,
+          };
+          if (enabledPlugins !== undefined) cursorSkills = loaded;
+          return loaded;
+        });
+        /** Skills the SDK keeps out of the model's catalog; undefined while they are unknown. */
+        const resolveUnlistedCursorSkills = Effect.fn(
+          "CursorAdapterV2.resolveUnlistedCursorSkills",
+        )(function* (cwd: string | undefined) {
+          if (cursorSkills !== undefined) return cursorSkills.unlisted;
+          const enabledPlugins = yield* readEnabledPlugins;
+          if (enabledPlugins === undefined) return undefined;
+          // Without a team plugin the SDK's catalog is complete, so the first turn skips the scan.
+          return enabledPlugins.some((plugin) => plugin.marketplace !== CURSOR_PUBLIC_MARKETPLACE)
+            ? (yield* loadCursorSkills(cwd, enabledPlugins)).unlisted
+            : [];
+        });
         const resolveCursorSkillText = Effect.fn("CursorAdapterV2.resolveCursorSkillText")(
           function* (rawText: string, cwd: string | undefined) {
-            if (
-              cursorSkills === undefined &&
-              (hasCursorSkillMention(rawText) || cursorSlashSkillNames(rawText).size > 0)
-            ) {
-              const skills = yield* discoverCursorSkills(cwd, adapterOptions.environment).pipe(
-                Effect.provideService(FileSystem.FileSystem, fileSystem),
-                Effect.provideService(Path.Path, path),
-              );
-              cursorSkills = new Map(
-                skills
-                  .filter((skill) => skill.enabled && skill.userInvocable !== false)
-                  .map((skill) => [skill.name, skill]),
-              );
-            }
-            if (cursorSkills === undefined) return rawText;
-            const skillsByName = cursorSkills;
+            const loaded =
+              cursorSkills ??
+              (hasCursorSkillMention(rawText) || cursorSlashSkillNames(rawText).size > 0
+                ? yield* loadCursorSkills(cwd, yield* readEnabledPlugins)
+                : undefined);
+            if (loaded === undefined) return rawText;
+            const skillsByName = loaded.invocable;
             const text = rewriteCursorSkillMentions(rawText, new Set(skillsByName.keys()));
             const invoked = yield* Effect.forEach(cursorSlashSkillNames(text), (name) => {
               const skill = skillsByName.get(name);
@@ -2623,23 +2660,29 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
           turnInput: ProviderAdapter.ProviderAdapterV2TurnInput,
           mcpServers: Record<string, McpServerConfig> | undefined,
           hasDeviceTools: boolean,
-          delivered: { readonly orchestration: boolean; readonly device: boolean },
+          delivered: {
+            readonly orchestration: boolean;
+            readonly device: boolean;
+            readonly skills: boolean;
+          },
           interrupted: string | undefined,
         ) {
           const rawText = turnInput.message.text;
           if (rawText.trim() === "/compress" && turnInput.message.attachments.length === 0) {
-            return { message: "/compress", prompt: undefined };
+            return { message: "/compress", prompt: undefined, skillsDelivered: false };
           }
+          const cwd = turnInput.runtimePolicy.cwd ?? undefined;
+          const unlistedSkills = delivered.skills ? [] : yield* resolveUnlistedCursorSkills(cwd);
           const newText = t3OrchestrationPrompt({
-            prompt: yield* providerMessageTextWithAttachmentPaths({
-              text: yield* resolveCursorSkillText(
-                rawText,
-                turnInput.runtimePolicy.cwd ?? undefined,
-              ),
-              attachments: turnInput.message.attachments,
-              resolveAttachmentPath: host.resolveAttachmentPath,
-              resolveExtractedTextPath: host.resolveExtractedTextPath,
-            }),
+            prompt: appendCursorSkillCatalog(
+              yield* providerMessageTextWithAttachmentPaths({
+                text: yield* resolveCursorSkillText(rawText, cwd),
+                attachments: turnInput.message.attachments,
+                resolveAttachmentPath: host.resolveAttachmentPath,
+                resolveExtractedTextPath: host.resolveExtractedTextPath,
+              }),
+              unlistedSkills ?? [],
+            ),
             hasT3Mcp: mcpServers !== undefined,
             hasDeviceTools,
             orchestrationDelivered: delivered.orchestration,
@@ -2688,6 +2731,7 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
           return {
             message: images.length === 0 ? text : ({ text, images } satisfies SDKUserMessage),
             prompt: userText,
+            skillsDelivered: unlistedSkills !== undefined,
           };
         });
 
@@ -2722,6 +2766,7 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
                 : {
                     orchestration: turnInput.nativeThreadHasTurns ?? turnInput.runOrdinal > 1,
                     device: false,
+                    skills: turnInput.nativeThreadHasTurns ?? turnInput.runOrdinal > 1,
                   };
             const interrupted = yield* Ref.get(interruptedPrompt);
             const runCheckpointed = (runId?: string) =>
@@ -2749,11 +2794,11 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
                 providerThreadId: turnInput.providerThread.id,
               });
             }
-            const { message, prompt } =
+            const { message, prompt, skillsDelivered } =
               resume === "native"
-                ? { message: "", prompt: undefined }
+                ? { message: "", prompt: undefined, skillsDelivered: false }
                 : resume === "replay"
-                  ? { message: dropped!.message, prompt: dropped!.text }
+                  ? { message: dropped!.message, prompt: dropped!.text, skillsDelivered: false }
                   : yield* resolveUserMessage(
                       turnInput,
                       mcpServers,
@@ -2802,6 +2847,7 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
                 agent: agent.nativeThreadId,
                 orchestration: !compacted && (delivered.orchestration || mcpServers !== undefined),
                 device: !compacted && hasDeviceTools,
+                skills: !compacted && skillsDelivered,
               });
             }
             if (!compacted && resume !== "native") {
@@ -3268,7 +3314,7 @@ export const makeCursorAdapterV2 = Effect.fn("makeCursorAdapterV2")(function* (
               // The kept turns may predate a compaction, so the instructions are sent again.
               const forgetConversation = (agent: string) =>
                 Effect.all([
-                  Ref.set(told, { agent, orchestration: false, device: false }),
+                  Ref.set(told, { agent, orchestration: false, device: false, skills: false }),
                   Ref.set(interruptedPrompt, null),
                   Ref.set(resumedAgent, null),
                 ]);
