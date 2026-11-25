@@ -109,7 +109,11 @@ GitHub-hosted runners and publishes them as releases on this repository. CI buil
 
 The workflow only adds a file and calls the shared `release-desktop.yml` with its inputs. When
 merging, check that `release-desktop.yml` inputs, artifact names (`js-bundle`, `desktop-*`,
-`cli-*`) and the Windows job's wait for the job named `Build Linux <arch>` still match. macOS
+`cli-*`) and the Windows job's wait for the job named `Build Linux <arch>` still match. The
+bundle job copies `apps/server/dist/client/.vite/manifest.json` to `vite-manifest.release.json`
+before that upload, the same step as `release.yml`. `release-desktop.yml` moves it back.
+GitHub's artifact upload drops the hidden `.vite` directory, so skipping the copy ships a
+client with no asset manifest. macOS
 legs run on `macos-15`. If GitHub cancels one before it starts, `release-fork-retry.yml`
 re-runs that release once. A leg that started and failed is not re-run. Keep that workflow's
 trigger when merging. Signing is optional: without the Apple and Azure secrets that
